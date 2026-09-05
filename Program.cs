@@ -23,7 +23,7 @@ Directory.CreateDirectory(Path.Combine(builder.Environment.ContentRootPath, "ima
 Directory.CreateDirectory(Path.Combine(builder.Environment.ContentRootPath, "videos"));
 Directory.CreateDirectory(Path.Combine(builder.Environment.ContentRootPath, "uploads"));
 
-var liteDb = new LiteDatabase(Path.Combine(dataDir, "emerald.db")) { UtcDate = true };
+var liteDb = new LiteDatabase(Path.Combine(dataDir, "recuni2021.db")) { UtcDate = true };
 builder.Services.AddSingleton(liteDb);
 builder.Services.AddSingleton<PlayerDB>();
 builder.Services.AddSingleton<RoomDB>();
