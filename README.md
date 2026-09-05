@@ -6,7 +6,7 @@ Developed by @bentleyrr and @izzy
 
 # Build date
 
-This server is built for July 23 2021! (20210723)
+This server is built for July 23 2021! ([20210723](https://archive.recagain.site/2021-07-28T06-51-35Z))
 
 # How to build!
 
