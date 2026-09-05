@@ -32,6 +32,7 @@ builder.Services.AddSingleton<HubState>();
 builder.Services.AddSingleton<HubWebSocketHandler>();
 builder.Services.AddSingleton<ServerState>();
 builder.Services.AddSingleton<CommerceStore>();
+builder.Services.AddSingleton<ObjectiveStateStore>();
 
 var app = builder.Build();
 
