@@ -19,9 +19,14 @@ public class CommerceStore
     {
         _roomDb = roomDb;
         var giftDropPath = Path.Combine(env.ContentRootPath, "Seed", "GiftDropStore.json");
-        _giftDropStore = JsonSerializer.Deserialize<Dictionary<string, object?>>(File.ReadAllText(giftDropPath))!;
+        var rawGiftDrop = JsonSerializer.Deserialize<Dictionary<string, object?>>(File.ReadAllText(giftDropPath))!;
+        _giftDropStore = JsonUtil.NormalizeDict(rawGiftDrop);
+
         var clubSearchPath = Path.Combine(env.ContentRootPath, "Seed", "ClubSearch.json");
-        _clubSearch = JsonSerializer.Deserialize<Dictionary<string, List<Dictionary<string, object?>>>>(File.ReadAllText(clubSearchPath))!;
+        var rawClubs = JsonSerializer.Deserialize<Dictionary<string, object?>>(File.ReadAllText(clubSearchPath))!;
+        _clubSearch = JsonUtil.NormalizeDict(rawClubs).ToDictionary(
+            kv => kv.Key,
+            kv => (kv.Value as List<object?> ?? new List<object?>()).OfType<Dictionary<string, object?>>().ToList());
     }
 
     public int ResolveStorefrontType(int roomId)
@@ -33,10 +38,8 @@ public class CommerceStore
 
     public List<Dictionary<string, object?>> AllStoreItems()
     {
-        if (_giftDropStore.TryGetValue("StoreItems", out var items) && items is JsonElement el)
-        {
-            return JsonSerializer.Deserialize<List<Dictionary<string, object?>>>(el.GetRawText()) ?? new();
-        }
+        if (_giftDropStore.TryGetValue("StoreItems", out var items) && items is List<object?> list)
+            return list.OfType<Dictionary<string, object?>>().ToList();
         return new();
     }
 
@@ -44,42 +47,32 @@ public class CommerceStore
 
     public double SubscriberDiscountPercent()
     {
-        if (_giftDropStore.TryGetValue("SubscriberDiscountPercent", out var v) && v is JsonElement el)
-            return el.GetDouble();
-        return 0;
+        var v = _giftDropStore.GetValueOrDefault("SubscriberDiscountPercent");
+        return v != null ? Convert.ToDouble(v) : 0;
     }
 
     public List<Dictionary<string, object?>> ItemsForStorefront(string storefrontId)
     {
         var all = AllStoreItems();
-        if (_giftDropStore.TryGetValue("CuratedShops", out var shopsObj) && shopsObj is JsonElement shopsEl &&
-            shopsEl.ValueKind == JsonValueKind.Object && shopsEl.TryGetProperty(storefrontId, out var curatedEl))
+        if (_giftDropStore.TryGetValue("CuratedShops", out var shopsObj) && shopsObj is Dictionary<string, object?> shops &&
+            shops.TryGetValue(storefrontId, out var curatedRaw) && curatedRaw is List<object?> curatedList)
         {
-            var curatedIds = JsonSerializer.Deserialize<List<int>>(curatedEl.GetRawText()) ?? new();
+            var curatedIds = curatedList.Select(Convert.ToInt32).ToList();
             var byId = new Dictionary<int, Dictionary<string, object?>>();
             foreach (var entry in all)
             {
                 if (entry.TryGetValue("PurchasableItemId", out var pid) && pid != null)
-                {
-                    var idVal = Convert.ToInt32(pid is JsonElement pe ? pe.GetInt32() : pid);
-                    byId.TryAdd(idVal, entry);
-                }
+                    byId.TryAdd(Convert.ToInt32(pid), entry);
             }
             return curatedIds.Where(byId.ContainsKey).Select(id => byId[id]).ToList();
         }
         return all;
     }
 
-    public Dictionary<string, object?>? FindStoreItem(int purchasableItemId)
-    {
-        return AllStoreItems().FirstOrDefault(e =>
-            e.TryGetValue("PurchasableItemId", out var pid) && pid != null &&
-            Convert.ToInt32(pid is JsonElement pe ? pe.GetInt32() : pid) == purchasableItemId);
-    }
+    public Dictionary<string, object?>? FindStoreItem(int purchasableItemId) =>
+        AllStoreItems().FirstOrDefault(e =>
+            e.TryGetValue("PurchasableItemId", out var pid) && pid != null && Convert.ToInt32(pid) == purchasableItemId);
 
-    public List<Dictionary<string, object?>> ClubsForCategory(string category, int count)
-    {
-        if (_clubSearch.TryGetValue(category, out var clubs)) return clubs.Take(count).ToList();
-        return new();
-    }
+    public List<Dictionary<string, object?>> ClubsForCategory(string category, int count) =>
+        _clubSearch.TryGetValue(category, out var clubs) ? clubs.Take(count).ToList() : new();
 }
