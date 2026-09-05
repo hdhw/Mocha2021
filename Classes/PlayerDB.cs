@@ -1,8 +1,8 @@
 using LiteDB;
-using System.Text.Json;
-using EmeraldServer.Models;
+using Mocha2021.Models;
+using JsonSerializer = System.Text.Json.JsonSerializer;
 
-namespace EmeraldServer.Classes;
+namespace Mocha2021.Classes;
 
 public class PlayerDB
 {

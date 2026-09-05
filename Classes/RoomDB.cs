@@ -1,7 +1,7 @@
 using LiteDB;
-using EmeraldServer.Models;
+using Mocha2021.Models;
 
-namespace EmeraldServer.Classes;
+namespace Mocha2021.Classes;
 
 public class RoomDB
 {

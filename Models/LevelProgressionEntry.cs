@@ -1,4 +1,4 @@
-namespace EmeraldServer.Models;
+namespace Mocha2021.Models;
 
 public class LevelProgressionEntry
 {
