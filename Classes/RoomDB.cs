@@ -1,5 +1,8 @@
 using LiteDB;
 using Mocha2021.Models;
+using JsonSerializer = System.Text.Json.JsonSerializer;
+using JsonElement = System.Text.Json.JsonElement;
+using JsonValueKind = System.Text.Json.JsonValueKind;
 
 namespace Mocha2021.Classes;
 
@@ -23,12 +26,110 @@ public class RoomDB
     private readonly ILiteCollection<RoomInteraction> _interactions;
     private int _nextRoomId;
 
-    public RoomDB(LiteDatabase db)
+    public RoomDB(LiteDatabase db, IWebHostEnvironment env)
     {
         _rooms = db.GetCollection<Room>("rooms");
         _interactions = db.GetCollection<RoomInteraction>("room_interactions");
+        SeedBaseRoomsIfEmpty(env);
         _nextRoomId = (_rooms.FindAll().Select(r => (int?)r.RoomId).Max() ?? 0) + 1;
         if (_nextRoomId < 2) _nextRoomId = 2;
+    }
+
+    private void SeedBaseRoomsIfEmpty(IWebHostEnvironment env)
+    {
+        if (_rooms.Count() > 0) return;
+
+        var path = Path.Combine(env.ContentRootPath, "Seed", "BaseRooms.json");
+        if (!File.Exists(path)) return;
+        var rooms = JsonSerializer.Deserialize<List<Dictionary<string, JsonElement>>>(File.ReadAllText(path))!;
+
+        static int AsInt(JsonElement e) => e.ValueKind == JsonValueKind.Number ? e.GetInt32() : int.Parse(e.GetString()!);
+        static string? AsStrOrNull(JsonElement e) => e.ValueKind == JsonValueKind.Null ? null : e.GetString();
+
+        foreach (var r in rooms)
+        {
+            var roomId = AsInt(r["RoomId"]);
+            var subRoomEntries = new List<SubRoomEntry>();
+            string? unitySceneId = null;
+            foreach (var sr in r["SubRooms"].EnumerateArray())
+            {
+                var sceneId = sr.GetProperty("UnitySceneId").GetString();
+                unitySceneId ??= sceneId;
+                subRoomEntries.Add(new SubRoomEntry
+                {
+                    SubRoomId = AsInt(sr.GetProperty("SubRoomId")),
+                    RoomId = roomId,
+                    Name = sr.GetProperty("Name").GetString() ?? "Home",
+                    DataBlob = AsStrOrNull(sr.GetProperty("DataBlob")),
+                    IsSandbox = sr.GetProperty("IsSandbox").GetBoolean(),
+                    MaxPlayers = AsInt(sr.GetProperty("MaxPlayers")),
+                    Accessibility = AsInt(sr.GetProperty("Accessibility")),
+                    UnitySceneId = sceneId,
+                    SavedByAccountId = AsInt(sr.GetProperty("SavedByAccountId")),
+                });
+            }
+
+            var roleEntries = r["Roles"].EnumerateArray()
+                .Select(role => new RoomRoleEntry { AccountId = AsInt(role.GetProperty("AccountId")), Role = AsInt(role.GetProperty("Role")) })
+                .ToList();
+            var tags = r["Tags"].EnumerateArray().Select(t => t.GetProperty("Tag").GetString()!).ToList();
+            var stats = r["Stats"];
+
+            var room = new Room
+            {
+                RoomId = roomId,
+                Name = r["Name"].GetString() ?? "",
+                UnitySceneId = unitySceneId,
+                DataBlob = AsStrOrNull(r["DataBlob"]),
+                OwnerId = AsInt(r["CreatorAccountId"]),
+                MaxPlayers = AsInt(r["MaxPlayers"]),
+                Accessibility = AsInt(r["Accessibility"]),
+                Description = r["Description"].GetString(),
+                ImageName = r["ImageName"].GetString(),
+                CloningAllowed = r["CloningAllowed"].GetBoolean(),
+                IsDorm = r["IsDorm"].GetBoolean(),
+                SupportsLevelVoting = r["SupportsLevelVoting"].GetBoolean(),
+                IsRRO = r["IsRRO"].GetBoolean(),
+                Cheers = AsInt(stats.GetProperty("CheerCount")),
+                FavoritesCount = AsInt(stats.GetProperty("FavoriteCount")),
+                Visits = AsInt(stats.GetProperty("VisitCount")),
+                CreatedAt = DateTime.UtcNow,
+                Tags = tags,
+                SubRooms = subRoomEntries,
+                Roles = roleEntries,
+            };
+            _rooms.Insert(room);
+        }
+
+        if (_rooms.FindById(7716) == null)
+        {
+            _rooms.Insert(new Room
+            {
+                RoomId = 7716,
+                Name = "RecCenter",
+                UnitySceneId = "cbad71af-0831-44d8-b8ef-69edafa841f6",
+                OwnerId = 1,
+                MaxPlayers = 10,
+                Accessibility = 1,
+                Description = "A social hub to meet and mingle with friends new and old.",
+                ImageName = "RecCenter",
+                IsRRO = true,
+                Cheers = 999,
+                FavoritesCount = 999,
+                Visits = 9999,
+                CreatedAt = DateTime.UtcNow,
+                Tags = new List<string> { "hangout" },
+                SubRooms = new List<SubRoomEntry>
+                {
+                    new()
+                    {
+                        SubRoomId = 1, RoomId = 7716, Name = "Home", DataBlob = "", IsSandbox = false,
+                        MaxPlayers = 12, Accessibility = 1, UnitySceneId = "cbad71af-0831-44d8-b8ef-69edafa841f6", SavedByAccountId = -1,
+                    },
+                },
+                Roles = new List<RoomRoleEntry> { new() { AccountId = 1, Role = 255 } },
+            });
+        }
     }
 
     public static bool IsDormRoomId(int roomId) => roomId >= DormRoomIdOffset;
