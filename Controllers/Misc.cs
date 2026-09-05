@@ -37,7 +37,7 @@ public class Misc : ControllerBase
         var defaultInstance = new Dictionary<string, object?>
         {
             ["roomInstanceId"] = Guid.NewGuid().ToString(), ["roomId"] = 1, ["subRoomId"] = 0, ["roomInstanceType"] = 0,
-            ["location"] = 0, ["photonRegionId"] = "us", ["photonRoomId"] = Guid.NewGuid().ToString(), ["name"] = "^DormRoom",
+            ["location"] = RoomInstanceManager.DefaultRoomLocation, ["photonRegionId"] = "us", ["photonRoomId"] = Guid.NewGuid().ToString(), ["name"] = "^DormRoom",
             ["maxCapacity"] = 16, ["isFull"] = false, ["isPrivate"] = true, ["isInProgress"] = true,
             ["EncryptVoiceChat"] = false, ["matchmakingPolicy"] = 0, ["clubId"] = 0, ["eventId"] = 0, ["roomCode"] = "",
         };
