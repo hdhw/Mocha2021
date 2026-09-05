@@ -142,9 +142,9 @@ public class Media : ControllerBase
 
     private static readonly List<Dictionary<string, object?>> SlideshowImages = new()
     {
-        new() { ["SavedImageId"] = 20, ["ImageName"] = "slideshow1.jpg", ["Username"] = "Emerald", ["PlayerId"] = 1, ["RoomName"] = "RecCenter" },
-        new() { ["SavedImageId"] = 21, ["ImageName"] = "slideshow2.jpg", ["Username"] = "Emerald", ["PlayerId"] = 1, ["RoomName"] = "RecCenter" },
-        new() { ["SavedImageId"] = 22, ["ImageName"] = "slideshow3.jpg", ["Username"] = "Emerald", ["PlayerId"] = 1, ["RoomName"] = "RecCenter" },
+        new() { ["SavedImageId"] = 20, ["ImageName"] = "slideshow1.jpg", ["Username"] = "Mocha2021", ["PlayerId"] = 1, ["RoomName"] = "RecCenter" },
+        new() { ["SavedImageId"] = 21, ["ImageName"] = "slideshow2.jpg", ["Username"] = "Mocha2021", ["PlayerId"] = 1, ["RoomName"] = "RecCenter" },
+        new() { ["SavedImageId"] = 22, ["ImageName"] = "slideshow3.jpg", ["Username"] = "Mocha2021", ["PlayerId"] = 1, ["RoomName"] = "RecCenter" },
     };
 
     [HttpGet("/api/images/v1/slideshow")]
