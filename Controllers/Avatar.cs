@@ -70,13 +70,13 @@ public class Avatar : ControllerBase
 
     private static Dictionary<string, object?> GiftToJson(Models.Gift r) => new()
     {
-        ["Id"] = r.Id, ["FromPlayerId"] = r.FromPlayerId, ["ConsumableItemDesc"] = r.ConsumableItemDesc,
-        ["AvatarItemDesc"] = r.AvatarItemDesc, ["EquipmentPrefabName"] = r.EquipmentPrefabName,
-        ["EquipmentModificationGuid"] = r.EquipmentModificationGuid, ["CurrencyType"] = r.CurrencyType,
+        ["Id"] = r.Id, ["FromPlayerId"] = r.FromPlayerId, ["ConsumableItemDesc"] = r.ConsumableItemDesc ?? "",
+        ["AvatarItemDesc"] = r.AvatarItemDesc ?? "", ["EquipmentPrefabName"] = r.EquipmentPrefabName ?? "",
+        ["EquipmentModificationGuid"] = r.EquipmentModificationGuid ?? "", ["CurrencyType"] = r.CurrencyType,
         ["Currency"] = r.Currency, ["Xp"] = r.Xp, ["Level"] = r.Level, ["Platform"] = r.Platform,
         ["PlatformsToSpawnOn"] = r.PlatformsToSpawnOn, ["BalanceType"] = r.BalanceType, ["GiftContext"] = r.GiftContext,
-        ["GiftRarity"] = r.GiftRarity, ["Message"] = r.Message, ["AvatarItemType"] = r.AvatarItemType,
-        ["FriendlyName"] = r.FriendlyName, ["Tooltip"] = r.Tooltip,
+        ["GiftRarity"] = r.GiftRarity, ["Message"] = r.Message ?? "", ["AvatarItemType"] = r.AvatarItemType,
+        ["FriendlyName"] = r.FriendlyName ?? "", ["Tooltip"] = r.Tooltip ?? "",
     };
 
     [HttpGet("/api/avatar/v3/saved")]

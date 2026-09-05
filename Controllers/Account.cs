@@ -282,6 +282,107 @@ public class Account : ControllerBase
     [HttpGet("/role/developer/{accountId:int}")]
     public IActionResult RoleDeveloper(int accountId) => new OkObjectResult(_playerDb.HasRole(accountId, "developer"));
 
+    [HttpGet("/api/settings/v2/")]
+    public IActionResult SettingsGet()
+    {
+        var authHeader = Request.Headers.Authorization.ToString();
+        var accountId = _sessions.ResolveAccountIdOrNull(authHeader);
+        var (started, chosenUsername, createdPassword, finished) = accountId != null
+            ? _playerDb.GetAccountCreationState(accountId.Value)
+            : (false, false, false, false);
+
+        string Flag(bool b) => b ? "True" : "False";
+
+        var defaults = new List<Dictionary<string, object?>>
+        {
+            new() { ["Key"] = "SplitTestAssignedSegments", ["Value"] = "1|{\"SplitTesting+RoomRecommendations_2020_05_06\":\"Off\",\"SplitTesting+RoomRecommendationsType_2020_08_14\":\"Aug14MinVisitors3500\",\"SplitTesting+Promo_Pack_2020_05_27\":\"ShowPurchaseReminder_B\",\"SplitTesting+GottaGoFastNUX_2020_09_04\":\"Off\",\"SplitTesting+ProfileOnClick_2021_04_30\":\"Off\",\"SplitTesting+PlayHighlightCardSizes_2021_05_04\":\"On\",\"SplitTesting+IOSLowHalfResolutionTextures_2021_05_14\":\"Off\",\"SplitTesting+NotificationPermissionsSkipButton_2021_06_25\":\"DeemphasizeSkipButton\",\"SplitTesting+NotificationPermissionsContextualPrompts_2021_06_25\":\"EventAction\"}" },
+            new() { ["Key"] = "PlayerSessionCount", ["Value"] = "1" },
+            new() { ["Key"] = "Recroom.AccountCreation.HasStarted", ["Value"] = Flag(started) },
+            new() { ["Key"] = "Recroom.AccountCreation.HasChosenUsername", ["Value"] = Flag(chosenUsername) },
+            new() { ["Key"] = "Recroom.AccountCreation.HasCreatedPassword", ["Value"] = Flag(createdPassword) },
+            new() { ["Key"] = "Recroom.AccountCreation.HasFinished", ["Value"] = Flag(finished) },
+            new() { ["Key"] = "BACKPACK_FAVORITE_TOOL", ["Value"] = "0" },
+            new() { ["Key"] = "MakerPen_SnappingMode", ["Value"] = "2" },
+            new() { ["Key"] = "HAS_OPENED_WATCH_MENU_BEFORE", ["Value"] = "1" },
+            new() { ["Key"] = "QualitySettings_Desktop_VRMissing", ["Value"] = "1" },
+            new() { ["Key"] = "Recroom.ChallengeMap", ["Value"] = "1" },
+            new() { ["Key"] = "TUTORIAL_COMPLETE_MASK", ["Value"] = "0" },
+            new() { ["Key"] = "SCREENSAUTOSPRINT", ["Value"] = "1" },
+            new() { ["Key"] = "SCREENS_MINIMAL_HUD", ["Value"] = "0" },
+            new() { ["Key"] = "HasCheckedForPlatformReferrers", ["Value"] = "1" },
+            new() { ["Key"] = "SCREENS_CAMERA_RELATIVE_DANCE_CONTROLS", ["Value"] = "1" },
+            new() { ["Key"] = "USER_TRACKING", ["Value"] = "1" },
+            new() { ["Key"] = "VoiceChat", ["Value"] = "0" },
+            new() { ["Key"] = "SCREENS_MOUSE_SENSITIVITY", ["Value"] = "30" },
+            new() { ["Key"] = "COMFORT_SETTINGS", ["Value"] = "{\"Mode\":\"Off\",\"Technique\":\"Screen\",\"Size\":1.0}" },
+            new() { ["Key"] = "IgnoreBuffer", ["Value"] = "0" },
+            new() { ["Key"] = "SEATED_MODE", ["Value"] = "1" },
+            new() { ["Key"] = "PlayerHeight", ["Value"] = "1.6557914" },
+            new() { ["Key"] = "TapToOpenWatch", ["Value"] = "0" },
+            new() { ["Key"] = "VR_MOVEMENT_MODE", ["Value"] = "1" },
+            new() { ["Key"] = "VRAUTOSPRINT", ["Value"] = "1" },
+            new() { ["Key"] = "ROTATION_INCREMENT", ["Value"] = "2" },
+            new() { ["Key"] = "DONT_LOCK_TOOLS_TO_HAND", ["Value"] = "1" },
+        };
+
+        var saved = accountId != null ? _playerDb.GetClientSettings(accountId.Value) : new();
+        var byKey = defaults.ToDictionary(e => e["Key"]!.ToString()!, e => e);
+        foreach (var (key, value) in saved)
+        {
+            if (byKey.TryGetValue(key, out var entry)) entry["Value"] = value;
+            else
+            {
+                var newEntry = new Dictionary<string, object?> { ["Key"] = key, ["Value"] = value };
+                defaults.Add(newEntry);
+                byKey[key] = newEntry;
+            }
+        }
+        return new OkObjectResult(defaults);
+    }
+
+    private static readonly HashSet<string> SettingsSkipKeys = new()
+    {
+        "Recroom.AccountCreation.HasStarted", "Recroom.AccountCreation.HasChosenUsername",
+        "Recroom.AccountCreation.HasCreatedPassword", "Recroom.AccountCreation.HasFinished",
+    };
+
+    [HttpPost("/api/settings/v2/set")]
+    public IActionResult SettingsSet()
+    {
+        var authHeader = Request.Headers.Authorization.ToString();
+        var accountId = _sessions.ResolveAccountIdOrNull(authHeader);
+
+        try { Request.Body.Position = 0; } catch { }
+        using var reader = new StreamReader(Request.Body);
+        var text = reader.ReadToEndAsync().GetAwaiter().GetResult();
+
+        List<Dictionary<string, object?>> entries = new();
+        if (!string.IsNullOrWhiteSpace(text))
+        {
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(text);
+                if (doc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Array)
+                    entries = doc.RootElement.EnumerateArray().Select(e => System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object?>>(e.GetRawText())!).ToList();
+                else if (doc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Object)
+                    entries = new() { System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object?>>(text)! };
+            }
+            catch { }
+        }
+
+        if (accountId != null)
+        {
+            foreach (var entry in entries)
+            {
+                var key = entry.GetValueOrDefault("Key")?.ToString();
+                if (string.IsNullOrEmpty(key) || SettingsSkipKeys.Contains(key)) continue;
+                var value = entry.GetValueOrDefault("Value")?.ToString() ?? "";
+                _playerDb.SetClientSetting(accountId.Value, key, value);
+            }
+        }
+        return new OkObjectResult(new Dictionary<string, object?> { ["status"] = "ok" });
+    }
+
     private Dictionary<string, object?>? ReadJsonBody()
     {
         try

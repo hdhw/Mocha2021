@@ -10,13 +10,17 @@ public class Config : ControllerBase
     private readonly PlayerDB _playerDb;
     private readonly ServerState _state;
     private readonly IWebHostEnvironment _env;
+    private readonly TestCaseStore _testCases;
+    private readonly SessionManager _sessions;
     private readonly List<Dictionary<string, object?>> _gameConfigs;
 
-    public Config(PlayerDB playerDb, ServerState state, IWebHostEnvironment env)
+    public Config(PlayerDB playerDb, ServerState state, IWebHostEnvironment env, TestCaseStore testCases, SessionManager sessions)
     {
         _playerDb = playerDb;
         _state = state;
         _env = env;
+        _testCases = testCases;
+        _sessions = sessions;
         var path = Path.Combine(env.ContentRootPath, "Seed", "GameConfigs.json");
         _gameConfigs = System.Text.Json.JsonSerializer.Deserialize<List<Dictionary<string, object?>>>(System.IO.File.ReadAllText(path))!;
     }
@@ -116,13 +120,64 @@ public class Config : ControllerBase
     };
 
     [HttpGet("/api/testcasemanagement/v1/testpasssummary")]
-    public IActionResult TestPassSummary() => new OkObjectResult(new List<object>());
+    public IActionResult TestPassSummary() => new OkObjectResult(_testCases.Passes.Values.Select(_testCases.PassJson).ToList());
 
     [HttpGet("/api/testcasemanagement/v1/testpass/{testPassId:int}")]
-    public IActionResult TcmGetPass(int testPassId) => new NotFoundObjectResult(new Dictionary<string, object?> { ["error"] = "not_found", ["error_description"] = "test pass not found" });
+    public IActionResult TcmGetPass(int testPassId)
+    {
+        if (!_testCases.Passes.TryGetValue(testPassId, out var tp))
+            return new NotFoundObjectResult(new Dictionary<string, object?> { ["error"] = "not_found", ["error_description"] = "test pass not found" });
+        return new OkObjectResult(_testCases.PassJson(tp));
+    }
 
     [HttpGet("/api/testcasemanagement/v1/testcase/{testCaseId}")]
-    public IActionResult TcmGetCase(string testCaseId) => new NotFoundObjectResult(new Dictionary<string, object?> { ["error"] = "not_found", ["error_description"] = "test case not found" });
+    public IActionResult TcmGetCase(string testCaseId)
+    {
+        if (!_testCases.Cases.TryGetValue(testCaseId, out var tc))
+            return new NotFoundObjectResult(new Dictionary<string, object?> { ["error"] = "not_found", ["error_description"] = "test case not found" });
+        return new OkObjectResult(_testCases.CaseJson(tc));
+    }
+
+    [HttpPost("/api/testcasemanagement/v1/testcase/{testCaseId}/claim")]
+    public IActionResult TcmClaimCase(string testCaseId)
+    {
+        if (!_testCases.Cases.TryGetValue(testCaseId, out var tc))
+            return new NotFoundObjectResult(new Dictionary<string, object?> { ["error"] = "not_found", ["error_description"] = "test case not found" });
+        var accountId = _sessions.CurrentAccountId(Request.Headers.Authorization.ToString());
+        var username = _playerDb.GetAccount(accountId)?.Username ?? "Unknown";
+        if (!tc.Assignees.Contains(username)) tc.Assignees.Add(username);
+        tc.Status = TestCaseStatus.Claimed;
+        return new OkObjectResult(_testCases.CaseJson(tc));
+    }
+
+    [HttpPost("/api/testcasemanagement/v1/testcase/{testCaseId}/unclaim")]
+    public IActionResult TcmUnclaimCase(string testCaseId)
+    {
+        if (!_testCases.Cases.TryGetValue(testCaseId, out var tc))
+            return new NotFoundObjectResult(new Dictionary<string, object?> { ["error"] = "not_found", ["error_description"] = "test case not found" });
+        var accountId = _sessions.CurrentAccountId(Request.Headers.Authorization.ToString());
+        var username = _playerDb.GetAccount(accountId)?.Username;
+        if (username != null) tc.Assignees.Remove(username);
+        tc.Status = TestCaseStatus.NotYetTested;
+        return new OkObjectResult(_testCases.CaseJson(tc));
+    }
+
+    [HttpPost("/api/testcasemanagement/v1/testcase/{testCaseId}/status")]
+    public IActionResult TcmSetCaseStatus(string testCaseId)
+    {
+        if (!_testCases.Cases.TryGetValue(testCaseId, out var tc))
+            return new NotFoundObjectResult(new Dictionary<string, object?> { ["error"] = "not_found", ["error_description"] = "test case not found" });
+
+        try { Request.Body.Position = 0; } catch { }
+        using var reader = new StreamReader(Request.Body);
+        var text = reader.ReadToEndAsync().GetAwaiter().GetResult();
+        var body = string.IsNullOrWhiteSpace(text) ? new() : System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object?>>(text) ?? new();
+        var statusRaw = body.GetValueOrDefault("Status") ?? body.GetValueOrDefault("status");
+        if (statusRaw == null || !int.TryParse(statusRaw.ToString(), out var newStatus))
+            return new ObjectResult(new Dictionary<string, object?> { ["error"] = "bad_request", ["error_description"] = "missing status" }) { StatusCode = 400 };
+        tc.Status = newStatus;
+        return new OkObjectResult(_testCases.CaseJson(tc));
+    }
 
     [HttpGet("/ai/v1/status")]
     public IActionResult AiStatus() => Ok2(new() { ["available"] = true, ["features"] = new[] { "avatarGen", "roomAssist" } });

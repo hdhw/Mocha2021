@@ -23,7 +23,8 @@ Directory.CreateDirectory(Path.Combine(builder.Environment.ContentRootPath, "ima
 Directory.CreateDirectory(Path.Combine(builder.Environment.ContentRootPath, "videos"));
 Directory.CreateDirectory(Path.Combine(builder.Environment.ContentRootPath, "uploads"));
 
-builder.Services.AddSingleton(new LiteDatabase(Path.Combine(dataDir, "emerald.db")));
+var liteDb = new LiteDatabase(Path.Combine(dataDir, "emerald.db")) { UtcDate = true };
+builder.Services.AddSingleton(liteDb);
 builder.Services.AddSingleton<PlayerDB>();
 builder.Services.AddSingleton<RoomDB>();
 builder.Services.AddSingleton<SessionManager>();
@@ -33,6 +34,7 @@ builder.Services.AddSingleton<HubWebSocketHandler>();
 builder.Services.AddSingleton<ServerState>();
 builder.Services.AddSingleton<CommerceStore>();
 builder.Services.AddSingleton<ObjectiveStateStore>();
+builder.Services.AddSingleton<TestCaseStore>();
 
 var app = builder.Build();
 
