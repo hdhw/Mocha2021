@@ -1,5 +1,5 @@
 > [!CAUTION]
-> This project's code is absolute hot spaghetti.
+> Even the Developers dont want you using this 😭
 
 # Rec-Uni Server
 Developed by @bentleyrr and @izzy
