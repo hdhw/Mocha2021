@@ -41,6 +41,8 @@ public class RoomDB
         return RoomPlatformKeys.ToDictionary(kv => kv.Value, kv => enabled.Contains(kv.Key));
     }
 
+    public List<Room> GetAllRoomsForAdmin() => _rooms.FindAll().OrderBy(r => r.RoomId).ToList();
+
     public Room? GetRoom(int roomId) => _rooms.FindById(roomId);
 
     public Room? GetRoomByName(string name) => _rooms.FindOne(r => r.Name == name);

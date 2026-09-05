@@ -49,6 +49,51 @@ app.Use(async (context, next) =>
     await next();
 });
 
+var adminUsername = Environment.GetEnvironmentVariable("ADMIN_USERNAME") ?? "admin";
+var adminPassword = Environment.GetEnvironmentVariable("ADMIN_PASSWORD");
+if (string.IsNullOrEmpty(adminPassword))
+    Console.WriteLine("[admin] WARNING: ADMIN_PASSWORD env var is not set. The admin panel will refuse all requests until it is set.");
+
+app.Use(async (context, next) =>
+{
+    if (!context.Request.Path.StartsWithSegments("/admin"))
+    {
+        await next();
+        return;
+    }
+    if (string.IsNullOrEmpty(adminPassword))
+    {
+        context.Response.StatusCode = 503;
+        await context.Response.WriteAsync("Admin panel disabled");
+        return;
+    }
+    var header = context.Request.Headers.Authorization.ToString();
+    var valid = false;
+    if (header.StartsWith("Basic ", StringComparison.OrdinalIgnoreCase))
+    {
+        try
+        {
+            var decoded = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(header["Basic ".Length..]));
+            var idx = decoded.IndexOf(':');
+            if (idx >= 0)
+            {
+                var user = decoded[..idx];
+                var pass = decoded[(idx + 1)..];
+                valid = user == adminUsername && pass == adminPassword;
+            }
+        }
+        catch { }
+    }
+    if (!valid)
+    {
+        context.Response.StatusCode = 401;
+        context.Response.Headers.WWWAuthenticate = "Basic realm=\"Admin Panel\"";
+        await context.Response.WriteAsync("Authentication required.");
+        return;
+    }
+    await next();
+});
+
 app.UseWebSockets();
 
 app.Use(async (context, next) =>

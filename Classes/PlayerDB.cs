@@ -60,6 +60,8 @@ public class PlayerDB
     public Account? GetLatestAccountByPlatformId(string platformId) =>
         _accounts.Find(a => a.PlatformId == platformId).OrderByDescending(a => a.AccountId).FirstOrDefault();
 
+    public List<Account> GetAllAccountsForAdmin() => _accounts.FindAll().OrderBy(a => a.AccountId).ToList();
+
     public List<Account> GetAccountsByIds(IEnumerable<int> ids)
     {
         var set = ids.ToHashSet();
