@@ -1,5 +1,5 @@
 > [!CAUTION]
-> Even the Developers dont want you using this 😭
+> REC UNI 2021 SERVER LEAK 😭
 
 # Rec-Uni Server
 Developed by @bentleyrr and @izzy
